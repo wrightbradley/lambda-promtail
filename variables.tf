@@ -197,3 +197,9 @@ variable "sqs_queue_name_prefix" {
   description = "Name prefix for SQS queues"
   default     = "s3-to-lambda-promtail"
 }
+
+variable "lambda_reserved_concurrent_executions" {
+  type        = number
+  description = "Amount of reserved concurrent executions for the Lambda function. A value of 0 disables the function. A value of -1 removes any reserved concurrency limit."
+  default     = -1
+}
