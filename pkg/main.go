@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -30,6 +29,8 @@ const (
 	maxErrMsgLen = 1024
 
 	invalidExtraLabelsError = "invalid value for environment variable EXTRA_LABELS. Expected a comma separated list with an even number of entries. "
+
+	defaultBatchSize = 131072 // see BATCH_SIZE in doc/sources/lambda-promtail-reference.md
 )
 
 var (
@@ -110,7 +111,7 @@ func setupArguments(ctx context.Context, secretFetcher secretFetcher) {
 	fmt.Println("keep stream: ", keepStream)
 
 	batch := os.Getenv("BATCH_SIZE")
-	batchSize = 131072
+	batchSize = defaultBatchSize
 	if batch != "" {
 		batchSize, _ = strconv.Atoi(batch)
 	}
@@ -228,38 +229,6 @@ func applyLabels(labels model.LabelSet) model.LabelSet {
 	}
 
 	return finalLabels
-}
-
-func checkEventType(ev map[string]interface{}) (interface{}, error) {
-	var s3Event events.S3Event
-	var s3TestEvent events.S3TestEvent
-	var cwEvent events.CloudwatchLogsEvent
-	var kinesisEvent events.KinesisEvent
-	var sqsEvent events.SQSEvent
-	var snsEvent events.SNSEvent
-	var eventBridgeEvent events.CloudWatchEvent
-
-	types := [...]interface{}{&s3Event, &s3TestEvent, &cwEvent, &kinesisEvent, &sqsEvent, &snsEvent, &eventBridgeEvent}
-
-	j, _ := json.Marshal(ev)
-	reader := strings.NewReader(string(j))
-	d := json.NewDecoder(reader)
-	d.DisallowUnknownFields()
-
-	for _, t := range types {
-		err := d.Decode(t)
-
-		if err == nil {
-			return t, nil
-		}
-
-		_, err = reader.Seek(0, 0)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return nil, fmt.Errorf("unknown event type")
 }
 
 func handler(ctx context.Context, ev map[string]interface{}) error {
